@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2000 IET Inc.
  * Copyright (c) 1994-1999 Vectaport Inc.
  *
  * Permission to use, copy, modify, distribute, and sell this software and
@@ -45,8 +46,6 @@ protected:
     void menulength_execute(const char* kind);
     Editor* _ed;
 
-static int _compview_id;
-
 };
 
 //: command to update Unidraw from comdraw.
@@ -70,16 +69,31 @@ public:
 };
 
 //: command to paste a graphic in comdraw.
-// paste(compview [xscale yscale xoff yoff | a00,a01,a10,a11,a20,a21]) -- paste graphic into the viewer"
+// compview=paste(compview [xscale yscale xoff yoff | a00,a01,a10,a11,a20,a21]) -- paste graphic into the viewer"
 class PasteFunc : public UnidrawFunc {
 public:
     PasteFunc(ComTerp*,Editor*,OverlayCatalog* = nil);
     virtual void execute();
     virtual const char* docstring() { 
-	return "%s(compview [xscale yscale xoff yoff | a00,a01,a10,a11,a20,a21]) -- paste graphic into the viewer"; }
+	return "compview=%s(compview [xscale yscale xoff yoff | a00,a01,a10,a11,a20,a21]) -- paste graphic into the viewer"; }
 
 protected:
     OverlayCatalog* _catalog;
+};
+
+//: command for toggling or setting paste mode
+// val=paste([flag] :val) -- toggle or set paste mode, default is 0, always paste new graphics
+class PasteModeFunc : public UnidrawFunc {
+public:
+    PasteModeFunc(ComTerp*, Editor*);
+
+    virtual void execute();
+    virtual const char* docstring() { 
+      return "val=%s([flag] :val) -- toggle or set paste mode, default is 0, always paste new graphics"; }
+    static int paste_mode() { return _paste_mode; }
+    static void paste_mode(int mode) { _paste_mode = mode; }
+ protected:
+    static int _paste_mode;
 };
 
 //: command to make a graphic read-only in comdraw.
@@ -94,15 +108,15 @@ public:
 };
 
 //: command to import a graphic file
-// import(pathname) -- import graphic file from pathname or URL.
+// compview=import(pathname :popen) -- import graphic file from pathname or URL, or from a command if :popen.
 class ImportFunc : public UnidrawFunc {
 public:
     ImportFunc(ComTerp*,Editor*);
-    OvImportCmd* import(const char* path);
+    OvImportCmd* import(const char* path, boolean popen=false);
     // helper method to import from path
     virtual void execute();
     virtual const char* docstring() { 
-	return "%s(pathname) -- import graphic file from pathname or URL"; }
+	return "compview=%s(pathname :popen) -- import graphic file from pathname or URL, or from a command if :popen"; }
 
 };
 
@@ -117,4 +131,38 @@ public:
 
 };
 
+//: command to composite component for a frame, defaults to current
+// compview=frame([index]) -- return composite component for a frame, defaults to current
+class FrameFunc : public UnidrawFunc {
+public:
+    FrameFunc(ComTerp*,Editor*);
+    virtual void execute();
+    virtual const char* docstring() { 
+	return "compview=%s([index]) --  return composite component for a frame, defaults to current"; }
+
+};
+
+//: command to pause script execution until C/R
+// pause -- pause script execution until C/R
+class UnidrawPauseFunc : public UnidrawFunc {
+public:
+    UnidrawPauseFunc(ComTerp*,Editor*);
+    virtual void execute();
+    virtual const char* docstring() { 
+	return "pause -- pause script execution until C/R"; }
+
+};
+
+//: command to add button to custom toolbar
+// compview=addtool(pathname) -- add button to toolbar based on zero-centered idraw drawing.
+class AddToolButtonFunc : public UnidrawFunc {
+public:
+    AddToolButtonFunc(ComTerp*,Editor*);
+    virtual void execute();
+    virtual const char* docstring() { 
+	return "compview=%s(pathname) -- add button to toolbar based on zero-centered idraw drawing."; }
+
+};
+
 #endif /* !defined(_unifunc_h) */
+

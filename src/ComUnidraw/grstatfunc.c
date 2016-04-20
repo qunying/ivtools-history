@@ -25,6 +25,7 @@
 #include <OverlayUnidraw/ovclasses.h>
 #include <OverlayUnidraw/ovvertices.h>
 #include <OverlayUnidraw/ovline.h>
+#include <OverlayUnidraw/ovviewer.h>
 
 #include <Unidraw/Components/grview.h>
 #include <Unidraw/Components/grcomp.h>
@@ -38,6 +39,8 @@
 #include <Attribute/attrlist.h>
 
 #define TITLE "GrStatFunc"
+
+static int scrn_symid = symbol_add("scrn");
 
 /*****************************************************************************/
 
@@ -57,16 +60,22 @@ void CenterFunc::execute() {
     if (!yx_flag && !x_flag && !y_flag) xy_flag = true;
     boolean return_an_array = xy_flag || yx_flag;
 
+    boolean scrn_flag = stack_key(scrn_symid).is_true();
+
     Viewer* viewer = _ed->GetViewer();
-    ComValue& obj = stack_arg(0);
+    ComValue obj(stack_arg(0));
     reset_stack();
-    if (obj.obj_type_val() == _compview_id) {
+    if (obj.object_compview()) {
       ComponentView* compview = (ComponentView*)obj.obj_val();
       if (compview && compview->GetSubject()) {
 	Graphic* gr = ((GraphicComp*)compview->GetSubject())->GetGraphic();
 	if (gr) {
 	  float cx, cy;
 	  gr->GetCenter(cx, cy);
+
+	  if (scrn_flag)
+	    ((OverlayViewer*)viewer)->DrawingToScreen(cx, cy, cx, cy);
+
 	  if (return_an_array) {
 	    AttributeValueList* avl = new AttributeValueList();
 	    ComValue* v1 = new ComValue(xy_flag ? cx : cy);
@@ -96,16 +105,24 @@ void MbrFunc::execute() {
     boolean lbrt_flag = stack_key(lbrt_symval).is_true();
     boolean lrbt_flag = stack_key(lrbt_symval).is_true();
 
+    boolean scrn_flag = stack_key(scrn_symid).is_true();
+
     Viewer* viewer = _ed->GetViewer();
-    ComValue& obj = stack_arg(0);
+    ComValue obj(stack_arg(0));
     reset_stack();
-    if (obj.obj_type_val() == _compview_id) {
+    if (obj.object_compview()) {
       ComponentView* compview = (ComponentView*)obj.obj_val();
       if (compview && compview->GetSubject()) {
 	Graphic* gr = ((GraphicComp*)compview->GetSubject())->GetGraphic();
 	if (gr) {
 	  float l, b, r, t;
 	  gr->GetBounds(l, b, r, t);
+
+	  if (scrn_flag) {
+	    ((OverlayViewer*)viewer)->DrawingToScreen(l, b, l, b);
+	    ((OverlayViewer*)viewer)->DrawingToScreen(r, t, r, t);
+	  }
+
 	  AttributeValueList* avl = new AttributeValueList();
 	  ComValue* lval = new ComValue(l);
 	  ComValue* bval = new ComValue(b);
@@ -131,9 +148,9 @@ PointsFunc::PointsFunc(ComTerp* comterp, Editor* ed) : UnidrawFunc(comterp, ed) 
 void PointsFunc::execute() {
     
     Viewer* viewer = _ed->GetViewer();
-    ComValue& obj = stack_arg(0);
+    ComValue obj(stack_arg(0));
     reset_stack();
-    if (obj.obj_type_val() == _compview_id) {
+    if (obj.object_compview()) {
       ComponentView* compview = (ComponentView*)obj.obj_val();
       if (compview && compview->GetSubject()) {
 	GraphicComp* comp = (GraphicComp*)compview->GetSubject();

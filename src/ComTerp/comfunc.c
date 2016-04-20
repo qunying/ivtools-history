@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2000 IET Inc.
  * Copyright (c) 1994-1999 Vectaport Inc.
  *
  * Permission to use, copy, modify, distribute, and sell this software and
@@ -24,12 +25,15 @@
 #include <ComTerp/comfunc.h>
 #include <ComTerp/comterp.h>
 #include <ComTerp/comvalue.h>
+#include <ComUtil/comutil.h>
 #include <Attribute/attrlist.h>
 #include <string.h>
 
 #define TITLE "ComFunc"
 
 /*****************************************************************************/
+
+int ComFunc::_symid = -1;
 
 ComFunc::ComFunc(ComTerp* comterp) {
     _comterp = comterp;
@@ -39,7 +43,7 @@ void ComFunc::reset_stack() {
   if (!post_eval()) {
     int count = nargs() + nkeys() - npops();
     for (int i=1; i<=npops(); i++) 
-      _comterp->stack_top(i).AttributeValue::~AttributeValue();
+      ((AttributeValue)_comterp->stack_top(i)).AttributeValue::~AttributeValue();
     
     _comterp->decr_stack(count);
   } else 
@@ -65,7 +69,7 @@ ComValue& ComFunc::stack_arg(int n, boolean symbol, ComValue& dflt) {
 		  keyref.keynarg_val())
 		return ComValue::nullval();
 	    }
-	    if (!symbol) 
+	    if (!symbol)
 	        argref = _comterp->lookup_symval(argref);
 	    return argref;
 	}
@@ -95,7 +99,7 @@ ComValue& ComFunc::stack_key(int id, boolean symbol, ComValue& dflt, boolean use
 		  else
 		    return dflt;
 		} else {
-		  if (!symbol) 
+		  if (!symbol)
 		    valref = _comterp->lookup_symval(valref);
 		  return valref;
 		}
@@ -121,7 +125,7 @@ ComValue& ComFunc::stack_arg_post_eval(int n, boolean symbol, ComValue& dflt) {
 
   if (n>=nargsfixed()) return dflt;  
 
-  for (int i=nargsfixed(); i>n; i--) {
+  for (int j=nargsfixed(); j>n; j--) {
     argcnt = 0;
     skip_arg_in_expr(offtop, argcnt);
   }
@@ -165,7 +169,7 @@ ComValue& ComFunc::stack_arg_post(int n, boolean symbol, ComValue& dflt) {
 
   if (n>=nargsfixed()) return dflt;  
 
-  for (int i=nargsfixed(); i>n; i--) {
+  for (int j=nargsfixed(); j>n; j--) {
     argcnt = 0;
     skip_arg_in_expr(offtop, argcnt);
   }
@@ -198,21 +202,23 @@ ComValue& ComFunc::stack_key_post
 }
 
 boolean ComFunc::skip_key_on_stack(int& stackptr, int& argcnt) {
-  return comterp()->skip_key(&comterp()->stack_top(), stackptr, argcnt);
+  return comterp()->skip_key(&comterp()->stack_top(), stackptr, 
+			     -comterp()->stack_height(), argcnt);
 }
 
 boolean ComFunc::skip_arg_on_stack(int& stackptr, int& argcnt) {
-  return comterp()->skip_arg(&comterp()->stack_top(), stackptr, argcnt);
+  return comterp()->skip_arg(&comterp()->stack_top(), stackptr, 
+			     -comterp()->stack_height(), argcnt);
 }
 
 boolean ComFunc::skip_key_in_expr(int& offtop, int& argcnt) {
   return comterp()->skip_key(&comterp()->_pfcomvals[comterp()->_pfnum-1], 
-			     offtop, argcnt);
+			     offtop, -comterp()->_pfnum, argcnt);
 }
 
 boolean ComFunc::skip_arg_in_expr(int& offtop, int& argcnt) {
   return comterp()->skip_arg(&comterp()->_pfcomvals[comterp()->_pfnum-1], 
-			     offtop, argcnt);
+			     offtop, -comterp()->_pfnum, argcnt);
 }
 
 ComValue& ComFunc::pop_stack() {
@@ -299,7 +305,8 @@ ComFuncState* ComFunc::funcstate() {
 
 void ComFunc::push_funcstate(int nargs, int nkeys, int pedepth,
 			     int command_symid) {
-  ComFuncState cfs(nargs, nkeys, pedepth, command_symid);
+  ComFuncState cfs(nargs, nkeys, pedepth, 
+		   command_symid==0 ? classid() : command_symid );
   _comterp->push_funcstate(cfs);
 }
 
@@ -411,6 +418,15 @@ AttributeList* ComFunc::stack_keys(boolean symbol, AttributeValue& dflt) {
   return al;
 }
 
+ComTerpServ* ComFunc::comterpserv() { 
+  return _comterp && _comterp->is_serv() ? (ComTerpServ*)_comterp : nil; 
+}
+
+ostream& operator<< (ostream& out, const ComFunc& cf) {
+    out << symbol_pntr(cf.funcid());
+    return out;
+}
+
 /*****************************************************************************/
 
 ComFuncState::ComFuncState(int narg, int nkey, int pedepth, 
@@ -427,3 +443,11 @@ ComFuncState::ComFuncState(int narg, int nkey, int pedepth,
 ComFuncState::ComFuncState(ComFuncState& cfs) {
   *this = cfs;
 }
+
+ostream& operator<< (ostream& out, const ComFuncState& cf) {
+    out << "nargs = " << cf._nargs;
+    out << ";nkeys = " << cf._nkeys;
+    return out;
+}
+
+

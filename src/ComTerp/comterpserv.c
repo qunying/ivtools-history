@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2000 IET Inc.
  * Copyright (c) 1994-1997 Vectaport Inc.
  *
  * Permission to use, copy, modify, distribute, and sell this software and
@@ -58,6 +59,8 @@ ComTerpServ::ComTerpServ(int bufsize, int fd)
 
     /* inform the parser which infunc is the oneshot infunc */
     _oneshot_infunc = (infuncptr)&s_fgets;
+
+    _logger_mode = 0;
 }
 
 ComTerpServ::~ComTerpServ() {
@@ -99,7 +102,7 @@ char* ComTerpServ::s_fgets(char* s, int n, void* serv) {
 
     /* copy characters until n-1 characters are transferred, */
     /* the input buffer is exhausted, or a newline is found. */
-    for (outpos = 0; outpos < n-1 && inpos < bufsize-1 && instr[inpos] != '\n';)
+    for (outpos = 0; outpos < n-1 && inpos < bufsize-1 && instr[inpos] != '\n' && instr[inpos] != '\0';)
 	outstr[outpos++] = instr[inpos++];
 
     /* copy the newline character if there is room */
@@ -184,7 +187,7 @@ int ComTerpServ::fd_fputs(const char* s, void* serv) {
     return 1;
 }
 
-int ComTerpServ::run() {
+int ComTerpServ::run(boolean one_expr, boolean nested) {
 
     char buffer[BUFSIZ];
     char errbuf[BUFSIZ];
@@ -200,7 +203,7 @@ int ComTerpServ::run() {
     _linenum = 0;
 
 #if 1
-    ComTerp::run();
+    ComTerp::run(one_expr, nested);
 #else
     while (!feof(_fptr) && !quitflag()) {
 	
@@ -238,12 +241,16 @@ int ComTerpServ::run() {
 
 int ComTerpServ::runfile(const char* filename) {
     /* save enough state as needed by this interpreter */
+#if 0
     void* save_inptr = _inptr;
     infuncptr save_infunc = _infunc;
     outfuncptr save_outfunc = _outfunc;
     eoffuncptr save_eoffunc = _eoffunc;
     errfuncptr save_errfunc = _errfunc;
     int save_linenum = _linenum;
+#else
+    push_servstate();
+#endif
     _inptr = this;
     _infunc = (infuncptr)&ComTerpServ::s_fgets;
     _eoffunc = (eoffuncptr)&ComTerpServ::s_feof;
@@ -304,12 +311,16 @@ int ComTerpServ::runfile(const char* filename) {
     } else
         push_stack(ComValue::nullval());
 
+#if 0
     _inptr = save_inptr;
     _infunc = save_infunc;
     _outfunc = save_outfunc;
     _eoffunc = save_eoffunc;
     _errfunc = save_errfunc;
     _linenum = save_linenum;
+#else
+    pop_servstate();
+#endif
 
     return status;
 }
@@ -317,6 +328,7 @@ int ComTerpServ::runfile(const char* filename) {
 ComValue& ComTerpServ::run(const char* expression, boolean nested) {
     _errbuf[0] = '\0';
 
+#if 0
     postfix_token* save_pfbuf = _pfbuf;
     int save_pfoff = _pfoff;
     int save_pfnum = _pfnum;
@@ -324,31 +336,42 @@ ComValue& ComTerpServ::run(const char* expression, boolean nested) {
     int save_linenum = _linenum;
     int save_just_reset = _just_reset;
     char* save_buffer = _buffer;
+#else
+    push_servstate();
+#endif
     _buffer = new char[_bufsiz];
     _bufptr = 0;
     _buffer[_bufptr] = '\0';
+#if 0
     if (save_pfoff) {
+#endif
       _pfbuf =  new postfix_token[_pfsiz];
       _pfoff = 0;
+#if 0
     }
     ComValue* save_pfcomvals = _pfcomvals;
+#endif
     _pfcomvals = nil;
 
     if (expression) {
         load_string(expression);
+#if 0
 	infuncptr save_infunc = _infunc;
 	eoffuncptr save_eoffunc = _eoffunc;
 	errfuncptr save_errfunc = _errfunc;
 	void* save_inptr = _inptr;
+#endif
 	_infunc = (infuncptr)&ComTerpServ::s_fgets;
 	_eoffunc = (eoffuncptr)&ComTerpServ::s_feof;
 	_errfunc = (errfuncptr)&ComTerpServ::s_ferror;
 	_inptr = this;
         read_expr();
+#if 0
 	_infunc = save_infunc;
 	_eoffunc = save_eoffunc;
 	_errfunc = save_errfunc;
 	_inptr = save_inptr;
+#endif
         err_str(_errbuf, BUFSIZ, "comterp");
     }
     if (!*_errbuf) {
@@ -356,6 +379,7 @@ ComValue& ComTerpServ::run(const char* expression, boolean nested) {
 	err_str(_errbuf, BUFSIZ, "comterp");
     }
 
+#if 0
     _pfnum = save_pfnum;
     _bufptr = save_bufptr;
     delete _buffer;
@@ -369,6 +393,9 @@ ComValue& ComTerpServ::run(const char* expression, boolean nested) {
     }
     delete [] _pfcomvals;
     _pfcomvals = save_pfcomvals;
+#else
+    pop_servstate();
+#endif
 
     return *_errbuf ? ComValue::nullval() : pop_stack();
 }
@@ -376,12 +403,16 @@ ComValue& ComTerpServ::run(const char* expression, boolean nested) {
 ComValue& ComTerpServ::run(postfix_token* tokens, int ntokens) {
     _errbuf[0] = '\0';
 
+#if 0
     postfix_token* save_pfbuf = _pfbuf;
     int save_pfnum = _pfnum;
     int save_pfoff = _pfoff;
     int save_bufptr = _bufptr;
     int save_linenum = _linenum;
     int save_just_reset = _just_reset;
+#else
+    push_servstate();
+#endif
     _pfbuf = tokens;
     _pfnum = ntokens;
     _pfoff = 0;
@@ -390,12 +421,17 @@ ComValue& ComTerpServ::run(postfix_token* tokens, int ntokens) {
     err_str(_errbuf, BUFSIZ, "comterp");
 
     ComValue& retval = *_errbuf ? ComValue::nullval() : pop_stack();
+#if 0
     _pfbuf = save_pfbuf;
     _pfnum = save_pfnum;
     _pfoff = save_pfoff;
     _bufptr = save_bufptr;
     _linenum = save_linenum;
     _just_reset = save_just_reset;
+#else
+    _pfbuf = nil;
+    pop_servstate();
+#endif
     return retval;
 }
 
@@ -409,7 +445,7 @@ void ComTerpServ::read_string(const char* script) {
     load_string(script);
     read_expr();
 }
-  
+
 void ComTerpServ::add_defaults() {
   if (!_defaults_added) {
     ComTerp::add_defaults();
@@ -417,4 +453,3 @@ void ComTerpServ::add_defaults() {
     add_command("eval", new EvalFunc(this));
   }
 }
-

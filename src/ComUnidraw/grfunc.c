@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2000 IET Inc.
  * Copyright (c) 1994-1997 Vectaport Inc.
  *
  * Permission to use, copy, modify, distribute, and sell this software and
@@ -27,6 +28,7 @@
 #include <ComTerp/comterp.h>
 
 #include <OverlayUnidraw/ovarrow.h>
+#include <OverlayUnidraw/oved.h>
 #include <OverlayUnidraw/ovcmds.h>
 #include <OverlayUnidraw/ovselection.h>
 #include <OverlayUnidraw/ovviewer.h>
@@ -42,6 +44,7 @@
 #include <Unidraw/catalog.h>
 #include <Unidraw/clipboard.h>
 #include <Unidraw/editor.h>
+#include <Unidraw/selection.h>
 #include <Unidraw/statevars.h>
 #include <Unidraw/unidraw.h>
 
@@ -115,8 +118,10 @@ void CreateRectFunc::execute() {
 	rect->SetTransformer(rel);
 	Unref(rel);
 	RectOvComp* comp = new RectOvComp(rect);
-	cmd = new PasteCmd(_ed, new Clipboard(comp));
-	ComValue compval(_compview_id, new ComponentView(comp));
+	if (PasteModeFunc::paste_mode()==0)
+	  cmd = new PasteCmd(_ed, new Clipboard(comp));
+	ComValue compval(symbol_add("RectComp"), new ComponentView(comp));
+	compval.object_compview(true);
 	push_stack(compval);
     } else 
 	push_stack(ComValue::nullval());
@@ -177,8 +182,10 @@ void CreateLineFunc::execute() {
 	line->SetTransformer(rel);
 	Unref(rel);
 	ArrowLineOvComp* comp = new ArrowLineOvComp(line);
-	cmd = new PasteCmd(_ed, new Clipboard(comp));
-	ComValue compval(_compview_id, new ComponentView(comp));
+	if (PasteModeFunc::paste_mode()==0)
+	  cmd = new PasteCmd(_ed, new Clipboard(comp));
+	ComValue compval(symbol_add("ArrowLineComp"), new ComponentView(comp));
+	compval.object_compview(true);
 	push_stack(compval);
     } else 
 	push_stack(ComValue::nullval());
@@ -238,8 +245,10 @@ void CreateEllipseFunc::execute() {
 	ellipse->SetTransformer(rel);
 	Unref(rel);
 	EllipseOvComp* comp = new EllipseOvComp(ellipse);
-	cmd = new PasteCmd(_ed, new Clipboard(comp));
-	ComValue compval(_compview_id, new ComponentView(comp));
+	if (PasteModeFunc::paste_mode()==0)
+	  cmd = new PasteCmd(_ed, new Clipboard(comp));
+	ComValue compval(symbol_add("EllipseComp"), new ComponentView(comp));
+	compval.object_compview(true);
 	push_stack(compval);
     } else 
 	push_stack(ComValue::nullval());
@@ -296,12 +305,15 @@ void CreateTextFunc::execute() {
 	    text->SetColors(colVar->GetFgColor(), colVar->GetBgColor());
             }
 	if (fntVar != nil) text->SetFont(fntVar->GetFont());
-	text->SetTransformer(rel);
-	Unref(rel);
+	text->SetTransformer(new Transformer());
 	text->Translate(args[x0], args[y0]);
+	text->GetTransformer()->postmultiply(rel);
+	Unref(rel);
 	TextOvComp* comp = new TextOvComp(text);
-	cmd = new PasteCmd(_ed, new Clipboard(comp));
-	ComValue compval(_compview_id, new ComponentView(comp));
+	if (PasteModeFunc::paste_mode()==0)
+	  cmd = new PasteCmd(_ed, new Clipboard(comp));
+	ComValue compval(symbol_add("TextComp"), new ComponentView(comp));
+	compval.object_compview(true);
 	push_stack(compval);
     } else
         push_stack(ComValue::nullval());
@@ -363,8 +375,10 @@ void CreateMultiLineFunc::execute() {
 	multiline->SetTransformer(rel);
 	Unref(rel);
 	ArrowMultiLineOvComp* comp = new ArrowMultiLineOvComp(multiline);
-	cmd = new PasteCmd(_ed, new Clipboard(comp));
-	ComValue compval(_compview_id, new ComponentView(comp));
+	if (PasteModeFunc::paste_mode()==0)
+	  cmd = new PasteCmd(_ed, new Clipboard(comp));
+	ComValue compval(symbol_add("ArrowMultiLineComp"), new ComponentView(comp));
+	compval.object_compview(true);
 	push_stack(compval);
     } else 
 	push_stack(ComValue::nullval());
@@ -426,8 +440,10 @@ void CreateOpenSplineFunc::execute() {
 	openspline->SetTransformer(rel);
 	Unref(rel);
 	ArrowSplineOvComp* comp = new ArrowSplineOvComp(openspline);
-	cmd = new PasteCmd(_ed, new Clipboard(comp));
-	ComValue compval(_compview_id, new ComponentView(comp));
+	if (PasteModeFunc::paste_mode()==0)
+	  cmd = new PasteCmd(_ed, new Clipboard(comp));
+	ComValue compval(symbol_add("ArrowSplineComp"), new ComponentView(comp));
+	compval.object_compview(true);
 	push_stack(compval);
     } else 
 	push_stack(ComValue::nullval());
@@ -487,8 +503,10 @@ void CreatePolygonFunc::execute() {
 	polygon->SetTransformer(rel);
 	Unref(rel);
 	PolygonOvComp* comp = new PolygonOvComp(polygon);
-	cmd = new PasteCmd(_ed, new Clipboard(comp));
-	ComValue compval(_compview_id, new ComponentView(comp));
+	if (PasteModeFunc::paste_mode()==0)
+	  cmd = new PasteCmd(_ed, new Clipboard(comp));
+	ComValue compval(symbol_add("PolygonComp"), new ComponentView(comp));
+	compval.object_compview(true);
 	push_stack(compval);
     } else 
 	push_stack(ComValue::nullval());
@@ -549,8 +567,10 @@ void CreateClosedSplineFunc::execute() {
 	closedspline->SetTransformer(rel);
 	Unref(rel);
 	ClosedSplineOvComp* comp = new ClosedSplineOvComp(closedspline);
-	cmd = new PasteCmd(_ed, new Clipboard(comp));
-	ComValue compval(_compview_id, new ComponentView(comp));
+	if (PasteModeFunc::paste_mode()==0)
+	  cmd = new PasteCmd(_ed, new Clipboard(comp));
+	ComValue compval(symbol_add("ClosedSplineComp"), new ComponentView(comp));
+	compval.object_compview(true);
 	push_stack(compval);
     } else 
 	push_stack(ComValue::nullval());
@@ -564,7 +584,7 @@ FontFunc::FontFunc(ComTerp* comterp, Editor* ed) : UnidrawFunc(comterp, ed) {
 }
 
 void FontFunc::execute() {
-    ComValue& fnum = stack_arg(0);
+    ComValue fnum(stack_arg(0));
     int fn = fnum.int_val();
     reset_stack();
 
@@ -586,7 +606,7 @@ BrushFunc::BrushFunc(ComTerp* comterp, Editor* ed) : UnidrawFunc(comterp, ed) {
 }
 
 void BrushFunc::execute() {
-    ComValue& bnum = stack_arg(0);
+    ComValue& bnum =stack_arg(0);
     int bn = bnum.int_val();
     reset_stack();
 
@@ -608,7 +628,7 @@ PatternFunc::PatternFunc(ComTerp* comterp, Editor* ed) : UnidrawFunc(comterp, ed
 }
 
 void PatternFunc::execute() {
-    ComValue& pnum = stack_arg(0);
+    ComValue pnum(stack_arg(0));
     int pn = pnum.int_val();
     reset_stack();
 
@@ -652,47 +672,114 @@ SelectFunc::SelectFunc(ComTerp* comterp, Editor* ed) : UnidrawFunc(comterp, ed) 
 }
 
 void SelectFunc::execute() {
-    Selection* s = _ed->GetSelection();
-    delete s;
+    static int all_symid = symbol_add("all");
+    ComValue all_flagv(stack_key(all_symid));
+    boolean all_flag = all_flagv.is_true();
+    static int clear_symid = symbol_add("clear");
+    ComValue clear_flagv(stack_key(clear_symid));
+    boolean clear_flag = clear_flagv.is_true();
+
+    Selection* sel = _ed->GetViewer()->GetSelection();
+    if (clear_flag) {
+      sel->Clear();
+      reset_stack();
+      return;
+    }
+      
     OverlaySelection* newSel = new OverlaySelection();
     
     Viewer* viewer = _ed->GetViewer();
     AttributeValueList* avl = new AttributeValueList();
-    if (nargs()==0) {
+    if (all_flag) {
 
-      GraphicView* gv = viewer->GetGraphicView();
+      GraphicView* gv = ((OverlayEditor*)_ed)->GetFrame();
       Iterator i;
       int count=0;
       for (gv->First(i); !gv->Done(i); gv->Next(i)) {
 	GraphicView* subgv = gv->GetView(i);
 	newSel->Append(subgv);
-	GraphicComp* comp = subgv->GetGraphicComp();
-	ComValue* compval = new ComValue(_compview_id, new ComponentView(comp));
+	OverlayComp* comp = (OverlayComp*)subgv->GetGraphicComp();
+	ComValue* compval = new ComValue(comp->classid(), new ComponentView(comp));
+	compval->object_compview(true);
 	avl->Append(compval);
+      }
+
+    } else if (nargs()==0) {
+      Iterator i;
+      int count=0;
+      for (sel->First(i); !sel->Done(i); sel->Next(i)) {
+	GraphicView* grview = sel->GetView(i);
+	OverlayComp* comp = grview ? (OverlayComp*)grview->GetSubject() : nil;
+	ComValue* compval = comp ? new ComValue(comp->classid(), new ComponentView(comp)) : nil;
+
+	if (compval) {
+	  compval->object_compview(true);
+	  avl->Append(compval);
+	}
+	delete newSel;
+        newSel = nil;
       }
 
     } else {
 
       for (int i=0; i<nargsfixed(); i++) {
         ComValue& obj = stack_arg(i);
-	if (obj.obj_type_val() == _compview_id) {
+	if (obj.object_compview()) {
 	  ComponentView* comview = (ComponentView*)obj.obj_val();
 	  OverlayComp* comp = (OverlayComp*)comview->GetSubject();
 	  if (comp) {
 	    newSel->Append(comp->FindView(viewer));
-	    ComValue* compval = new ComValue(_compview_id, new ComponentView(comp));
+	    ComValue* compval = new ComValue(comp->classid(), new ComponentView(comp));
+	    compval->object_compview(true);
 	    avl->Append(compval);
 	  }
 	}
       }
     }
 
-    _ed->SetSelection(newSel);
-    newSel->Update();
-    unidraw->Update();
+    if (newSel){
+      sel->Clear();
+      delete sel;
+      _ed->SetSelection(newSel);
+      newSel->Update(viewer);
+      unidraw->Update();
+    }
     reset_stack();
     ComValue retval(avl);
     push_stack(retval);
+}
+
+/*****************************************************************************/
+
+DeleteFunc::DeleteFunc(ComTerp* comterp, Editor* ed) : UnidrawFunc(comterp, ed) {
+}
+
+void DeleteFunc::execute() {
+  Viewer* viewer = _ed->GetViewer();
+
+  int nf=nargsfixed();
+  if (nf==0) {
+    reset_stack();
+    return;
+  }
+
+  Clipboard* delcb = new Clipboard();
+
+  for (int i=0; i<nf; i++) {
+    ComValue& obj = stack_arg(i);
+    if (obj.object_compview()) {
+      ComponentView* comview = (ComponentView*)obj.obj_val();
+      OverlayComp* comp = (OverlayComp*)comview->GetSubject();
+      if (comp) delcb->Append(comp);
+    }
+  }
+
+  DeleteCmd* delcmd = new DeleteCmd(GetEditor(), delcb);
+  delcmd->Execute();
+  unidraw->Update();
+  delete delcmd;
+
+  reset_stack();
 }
 
 /*****************************************************************************/
@@ -917,11 +1004,11 @@ TileFileFunc::TileFileFunc(ComTerp* comterp, Editor* ed) : UnidrawFunc(comterp, 
 }
 
 void TileFileFunc::execute() {
-    ComValue& ifilev = stack_arg(0);
-    ComValue& ofilev = stack_arg(1);
+    ComValue ifilev(stack_arg(0));
+    ComValue ofilev(stack_arg(1));
     ComValue five12(512);
-    ComValue& twidthv = stack_arg(2, false, five12);
-    ComValue& theightv = stack_arg(3, false, five12);
+    ComValue twidthv(stack_arg(2, false, five12));
+    ComValue theightv(stack_arg(3, false, five12));
     reset_stack();
 
     char* ifile = symbol_pntr(ifilev.symbol_ref());
@@ -949,7 +1036,6 @@ void TileFileFunc::execute() {
 	push_stack(ComValue::nullval());
     }
 }
-
 
 
 

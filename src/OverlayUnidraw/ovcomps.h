@@ -31,21 +31,7 @@
 
 #include <UniIdraw/idcomp.h>
 #include <InterViews/observe.h>
-extern "C" {
-#include <ComUtil/comutil.ci>
-}
-
-//: define methods for a class name and class symbol id.
-// adds ::class_name() and ::class_symid() based on 'name' to any 
-// class definition.  For use in servers built on ComTerp for generating a
-// unique id for a given type of component.
-#define classid(name) \
-public: \
-  static const char* class_name() {return name;}\
-  static int class_symid()\
-    { if (_symid<0) _symid=symbol_add((char*)class_name()); return _symid;} \
-protected: \
-  static int _symid;
+#include <Attribute/classid.h>
 
 class AttributeList;
 class AttributeValue;
@@ -141,8 +127,8 @@ public:
       (const char* name, boolean last = false, boolean breadth = false, 
        boolean down = true, boolean up = false);
     // search component tree for specified attribute value by 'name'.  Only
-    // default argument mode implemented so far -- return first occurence found
-    // with a downward depth-first search.
+    // two modes supported so far:  the default argument mode which returns the
+    // first occurence found with a downward depth-first search, and upward search.
     virtual AttributeValue* FindValue
       (int symid, boolean last = false, boolean breadth = false, 
        boolean down = true, boolean up = false);
@@ -185,6 +171,8 @@ protected:
 
 friend OverlayScript;
 friend OverlaysScript;
+
+    CLASS_SYMID("OverlayComp"); 
 };
 
 //: composite component, clone of GraphicComps derived from OverlayComp
@@ -310,6 +298,8 @@ protected:
     UList* _comps;
 
 friend OverlaysScript;
+
+    CLASS_SYMID("OverlaysComp"); 
 };
 
 #include <OverlayUnidraw/indexmixins.h>
@@ -374,6 +364,8 @@ protected:
     char* _basedir;
 
 friend OverlayCatalog;
+
+    CLASS_SYMID("OverlayIdrawComp"); 
 };
 
 inline boolean OverlayComp::valid() { return _valid; }

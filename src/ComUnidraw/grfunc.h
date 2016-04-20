@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2000 IET Inc.
  * Copyright (c) 1994-1997,1999 Vectaport Inc.
  *
  * Permission to use, copy, modify, distribute, and sell this software and
@@ -151,13 +152,24 @@ public:
 };
 
 //: command to select graphics in comdraw.
-// select([compview ...]) -- make these graphics the current selection (dflt is all)
+// select([compview ...] :all :clear) -- make these graphics the current selection, 
+// default returns current selection.
 class SelectFunc : public UnidrawFunc {
 public:
     SelectFunc(ComTerp*,Editor*);
     virtual void execute();
     virtual const char* docstring() { 
-	return "%s([compview ...]) -- make these graphics the current selection (dflt is all)"; }
+	return "%s([compview ...] :all :clear) -- make these graphics the current selection (dflt is current)"; }
+};
+
+//: command to delete graphics in comdraw.
+// delete(compview [compview ...]) -- delete graphic(s)
+class DeleteFunc : public UnidrawFunc {
+public:
+    DeleteFunc(ComTerp*,Editor*);
+    virtual void execute();
+    virtual const char* docstring() { 
+	return "%s([compview ...]) -- delete graphic(s)"; }
 };
 
 //: command to move current selection in comdraw

@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2000 IET Inc.
  * Copyright (c) 1994-1997 Vectaport Inc.
  *
  * Permission to use, copy, modify, distribute, and sell this software and
@@ -24,6 +25,7 @@
 #include <ComTerp/boolfunc.h>
 #include <ComTerp/comvalue.h>
 #include <ComTerp/comterp.h>
+#include <string.h>
 
 #define TITLE "BoolFunc"
 
@@ -134,7 +136,7 @@ void NegFunc::execute() {
     ComValue& operand1 = stack_arg(0);
     ComValue result(operand1);
     result.type(ComValue::BooleanType);
-    switch (result.type()) {
+    switch (operand1.type()) {
     case ComValue::CharType:
 	result.char_ref() = ! operand1.char_val();
 	break;
@@ -168,6 +170,17 @@ void NegFunc::execute() {
     case ComValue::BooleanType:
         result.boolean_ref() = ! operand1.boolean_val();
 	break;
+    case ComValue::UnknownType:
+        result.boolean_ref() = true;
+	break;
+    case ComValue::ArrayType:
+    case ComValue::ObjectType:
+        result.boolean_ref() = false;
+	break;
+    case ComValue::SymbolType:
+    case ComValue::StringType:
+        result.boolean_ref() = operand1.symbol_val()<0;
+	break;
     }
     reset_stack();
     push_stack(result);
@@ -177,53 +190,66 @@ EqualFunc::EqualFunc(ComTerp* comterp) : NumFunc(comterp) {
 }
 
 void EqualFunc::execute() {
-    ComValue& operand1 = stack_arg(0);
-    ComValue& operand2 = stack_arg(1);
+    static int sym_symid = symbol_add("sym");
+    boolean symflag = stack_key(sym_symid).is_true(); 
+    ComValue& operand1 = stack_arg(0, symflag);
+    ComValue& operand2 = stack_arg(1, symflag);
+    static int n_symid = symbol_add("n");
+    ComValue& nval =stack_key(n_symid); 
     promote(operand1, operand2);
     ComValue result(operand1);
     result.type(ComValue::BooleanType);
 
-    switch (operand1.type()) {
-    case ComValue::CharType:
+    if (operand2.type()==ComValue::UnknownType && operand1.type()!=ComValue::UnknownType)
+      result.boolean_ref() = 0;
+    
+    else {
+      switch (operand1.type()) {
+      case ComValue::CharType:
 	result.boolean_ref() = operand1.char_val() == operand2.char_val();
 	break;
-    case ComValue::UCharType:
+      case ComValue::UCharType:
 	result.boolean_ref() = operand1.uchar_val() == operand2.uchar_val();
 	break;
-    case ComValue::ShortType:
+      case ComValue::ShortType:
 	result.boolean_ref() = operand1.short_val() == operand2.short_val();
 	break;
-    case ComValue::UShortType:
+      case ComValue::UShortType:
 	result.boolean_ref() = operand1.ushort_val() == operand2.ushort_val();
 	break;
-    case ComValue::IntType:
+      case ComValue::IntType:
 	result.boolean_ref() = operand1.int_val() == operand2.int_val();
 	break;
-    case ComValue::UIntType:
+      case ComValue::UIntType:
 	result.boolean_ref() = operand1.uint_val() == operand2.uint_val();
 	break; 
-    case ComValue::LongType:
+      case ComValue::LongType:
 	result.boolean_ref() = operand1.long_val() == operand2.long_val();
 	break;
-    case ComValue::ULongType:
+      case ComValue::ULongType:
 	result.boolean_ref() = operand1.ulong_val() == operand2.ulong_val();
 	break;
-    case ComValue::FloatType:
+      case ComValue::FloatType:
 	result.boolean_ref() = operand1.float_val() == operand2.float_val();
 	break;
-    case ComValue::DoubleType:
+      case ComValue::DoubleType:
 	result.boolean_ref() = operand1.double_val() == operand2.double_val();
 	break;
-    case ComValue::StringType:
-	result.boolean_ref() = operand1.string_val() == operand2.string_val();
+      case ComValue::StringType:
+      case ComValue::SymbolType:
+	if (nval.is_unknown()) 
+	  result.boolean_ref() = operand1.symbol_val() == operand2.symbol_val();
+	else {
+	  const char* str1 = operand1.symbol_ptr();
+	  const char* str2 = operand2.symbol_ptr();
+	  result.boolean_ref() = strncmp(str1, str2, nval.int_val())==0;
+	}
 	break;
-    case ComValue::SymbolType:
-	result.boolean_ref() = operand1.symbol_val() == operand2.symbol_val();
-	break;
-    default:
+      default:
         result.boolean_ref() = operand1.is_type(ComValue::UnknownType) && 
-	                       operand2.is_type(ComValue::UnknownType);
+	  operand2.is_type(ComValue::UnknownType);
 	break;
+      }
     }
     reset_stack();
     push_stack(result);
@@ -269,6 +295,9 @@ void NotEqualFunc::execute() {
 	break;
     case ComValue::DoubleType:
 	result.boolean_ref() = operand1.double_val() != operand2.double_val();
+	break;
+    case ComValue::UnknownType:
+	result.boolean_ref() = operand2.is_known();
 	break;
     }
     reset_stack();

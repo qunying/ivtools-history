@@ -5,6 +5,7 @@ SYNOPSIS
      comterp
      comterp remote
      comterp server 'portnum'
+     comterp logger 'portnum'
      comterp client 'host' 'portnum' ['file']
      comterp telcat 'host' 'portnum' ['file']
      comterp run 'file'	
@@ -47,6 +48,12 @@ comterp server 'portnum'
 Listens for and accept connections on portnum, then setup a command
 interpreter to wait for and process commands from that connection.
 
+comterp logger 'portnum'
+
+Listens for and accept connections on portnum, then simply forward
+the incoming messages to stdout, while ack'ing back with newlines. For
+debugging purposes, not really a use of the interpreter.
+
 comterp client 'host' 'portnum' ['file']
 
 Connect to a portnum on a host and send/receive new-line terminated
@@ -67,7 +74,8 @@ OPERATOR TABLE
 
     Operators     Command Name         Priority    Order       Type
     ---------     ------------         --------    -----       ----
-    .             dot                  130         R-to-L      binary
+    .             dot                  130         L-to-R      binary
+    `             bquote               125         R-to-L      unary-prefix
     ^             power                120         R-to-L      binary
     !             negate               110         R-to-L      unary-prefix
     ++            incr                 110         R-to-L      unary-prefix
@@ -115,21 +123,27 @@ dbl=log10(x) -- returns the base-10 logarithm of x
 
 dbl=pow(x y) -- returns the value of x raised to the power of y
 
-dbl=acos(x) -- returns the arc cosine of x
+dbl=acos(x) -- returns the arc cosine of x in radians
 
-dbl=asin(x) -- returns the arc sine of x
+dbl=asin(x) -- returns the arc sine of x in radians
 
-dbl=atan(x) -- returns the arc tangent of x
+dbl=atan(x) -- returns the arc tangent of x in radians
 
 dbl=atan2(y x) -- returns the arc tangent of y over x
 
-dbl=cos(x) -- returns the cosine of x
+dbl=cos(x) -- returns the cosine of x radians
 
-dbl=sin(x) -- returns the sine of x
+dbl=sin(x) -- returns the sine of x radians
 
-dbl=tan(x) -- returns the tangent of x
+dbl=tan(x) -- returns the tangent of x radians
 
 dbl=sqrt(x) -- returns square root of x
+
+num=floor(num) -- return closest integer value less than or equal to argument
+
+num=ceil(num) -- return closest integer value greater than or equal to argument
+
+num=round(num) -- return closest integer value
 
 AFFINE TRANSFORM COMMANDS:
 
@@ -153,9 +167,11 @@ srand(seedval) -- seed random number generator
 
 LIST COMMANDS:
 
-val=at(list n) -- return nth item in a list
+lst=list([olst]) -- create an empty list or copy existing one
 
-num=size(list) -- return size of a list
+val=at(list|attrlist n) -- return nth item in a list
+
+num=size(list|attrlist) -- return size of a list
 
 CONTROL COMMANDS (using post evaluation):
 
@@ -173,13 +189,26 @@ OTHER COMMANDS
 
 help(cmdname [cmdname ...]) -- help for commands
 
+val=trace([flag] :get) -- toggle or set trace mode
+
 [str]=print(fmtstr val :string|:str :err) -- print value with format string
+[str]=print(val :string|:str :err) -- print value with format string
 
-symid(symbol [symbol...]) -- return integer id(s) associated with symbol(s)
+int|lst=symid(symbol [symbol ...]) -- return integer id(s) associated with symbol(s)
 
-symbol(symid [symid...]) -- return symbol(s) associated with integer id(s)
+sym|lst=symbol(symid [symid ...]) -- return symbol(s) associated with integer id(s)
 
-symvar(symbol_var [symbol_var...]) -- return value(s) associated with symbol variable(s)
+val|lst=symval(symbol [symbol ...]) -- return value(s) associated with symbol variables(s)
+
+sym|lst=symadd(symbol [symbol ...]) -- create symbol(s) and return without lookup.
+
+lst=split(symbol|string) -- split symbol or string into list of characters.
+
+str=join(clist :sym) -- join list of characters into string
+
+bool=eq(str1 str2 :n len) -- partial string comparison
+
+bool=eq(sym1 sym2 :sym) -- symbol comparison
 
 postfix(arg1 [arg2 [arg3 ... [argn]]]) -- echo unevaluated postfix arguments
 (with [narg|nkey] after defined commands, {narg|nkey} after undefined commands,
@@ -187,6 +216,9 @@ postfix(arg1 [arg2 [arg3 ... [argn]]]) -- echo unevaluated postfix arguments
 
 arr=posteval(arg1 [arg2 [arg3 ... [argn]]]) -- post-evaluate every fixed 
 argument (until nil) and return array
+
+sym=attrname(attribute) -- return name field of dotted pair
+val=attrval(attribute) -- return value field of dotted pair
 				 
 quit() -- quit the interpreter
 
@@ -197,7 +229,7 @@ val=run(filename) -- run commands from file
 val=remote(hoststr portnum cmdstr :nowait) -- remotely evaluate command string then 
 locally evaluate result string
 
-val=eval(cmdstr [cmdstr ...] :symret ) -- evaluate string as commands, 
+val|lst=eval(cmdstr [cmdstr ...] :symret ) -- evaluate string as commands, 
 optionally return symbol instead of nil
 
 val=shell(cmdstr) -- evaluate command in shell
@@ -215,6 +247,10 @@ l=long(num) -- convert any numeric to a long
 f=float(num) -- convert any numeric to a float
 
 d=double(num) -- convert any numeric to a double
+
+sym|lst=type(val [val ...]) -- return type symbol(s) for value(s)
+
+sym|lst=class(val [val ...]) -- return class symbol(s) for value(s) of object type
 
 ONLY IN SERVER MODE
 

@@ -82,6 +82,8 @@ static void NullGS (Graphic* g) { FullGraphic null; *g = null; }
 
 /*****************************************************************************/
 
+int OverlayComp::_symid = -1;
+
 ParamList* OverlayComp::_overlay_comp_params = nil;
 
 OverlayComp::OverlayComp (Graphic* g, OverlayComp* parent) : GraphicComp(g)
@@ -120,9 +122,10 @@ AttributeList* OverlayComp::GetAttributeList() {
 #endif
 
 void OverlayComp::SetAttributeList(AttributeList* al) {
+  if (_attrlist) 
     Unref(_attrlist);
-    _attrlist = al;
-    Resource::ref(_attrlist);
+  _attrlist = al;
+  Resource::ref(_attrlist);
 
 #if 0 // experimentation with attribute changing
     if (al) {
@@ -192,6 +195,7 @@ void OverlayComp::GrowParamList(ParamList* pl) {
 }
 
 OverlayView* OverlayComp::FindView (Viewer* viewer) {
+    if (!_views) return nil;
     for (UList* u = _views->First(); u != _views->End(); u = u->Next()) {
 	ComponentView* compview = View(u);
 	if (compview->IsA(OVERLAY_VIEW) && 
@@ -353,7 +357,7 @@ AttributeValue* OverlayComp::FindValue
     cerr << "breadth search not yet unsupported\n";
     return nil;
   } else if (up) {
-    cerr << "upward search not yet unsupported\n";
+    if (GetParent()) return ((OverlayComp*)GetParent())->FindValue(symid, last, breadth, down, up);
     return nil;
   } else if (last) {
     cerr << "search for last value not yet unsupported\n";
@@ -367,6 +371,7 @@ AttributeValue* OverlayComp::FindValue
 /*****************************************************************************/
 
 ParamList* OverlaysComp::_overlay_comps_params = nil;
+int OverlaysComp::_symid = -1;
 
 OverlaysComp::OverlaysComp (OverlayComp* parent) : OverlayComp(new Picture, parent) { 
     _comps = new UList;
@@ -914,14 +919,22 @@ void OverlaysComp::InsertBefore (Iterator i, GraphicComp* comp) {
 void OverlaysComp::InsertAfter (Iterator i, GraphicComp* comp) {
     Graphic* g = comp->GetGraphic();
     Graphic* parent;
-    
-    Elem(i)->Prepend(new UList(comp));
+
+    if (Elem(i))
+      Elem(i)->Prepend(new UList(comp));
+    else {
+      cerr << "OverlaysComp::InsertAfter -- Iterator has nil value\n";
+      return;
+    }
     
     if (g != nil) {
         Iterator j;
         parent = GetGraphic();
-        parent->SetGraphic(GetComp(i)->GetGraphic(), j);
-        parent->InsertAfter(j, g);
+	GraphicComp* comp = GetComp(i);
+	if (comp) {
+	  parent->SetGraphic(comp->GetGraphic(), j);
+	  parent->InsertAfter(j, g);
+	}
     }
     SetParent(comp, this);
 }
@@ -1125,8 +1138,13 @@ AttributeValue* OverlaysComp::FindValue
     cerr << "breadth search not yet unsupported\n";
     return nil;
   } else if (up) {
-    cerr << "upward search not yet unsupported\n";
-    return nil;
+    if (AttributeList* al = attrlist()) {
+      AttributeValue* av = al->find(symid);
+      if (av) return av;
+    } 
+    return GetParent() 
+      ? ((OverlayComp*)GetParent())->FindValue(symid, last, breadth, down, up) 
+      : nil;
   } else if (last) {
     cerr << "search for last value not yet unsupported\n";
     return nil;
@@ -1147,6 +1165,7 @@ AttributeValue* OverlaysComp::FindValue
 /*****************************************************************************/
 
 ParamList* OverlayIdrawComp::_overlay_idraw_params = nil;
+int OverlayIdrawComp::_symid = -1;
 
 OverlayIdrawComp::OverlayIdrawComp (const char* pathname, OverlayComp* parent)
 : OverlaysComp(parent) {

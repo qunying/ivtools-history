@@ -73,8 +73,8 @@ void HelpFunc::execute() {
       } else if (val.is_type(AttributeValue::StringType)) {
 	void *vptr = nil;
 	comterp()->localtable()->find(vptr, val.string_val());
-	if (vptr) {
-	  comfuncs[i] = (ComFunc*)((ComValue*)vptr)->obj_val();
+	if (vptr && ((ComValue*)vptr)->is_command()) {
+	    comfuncs[i] = (ComFunc*)((ComValue*)vptr)->obj_val();
 	} else
 	  comfuncs[i] = nil;
 	command_ids[i] = val.string_val();
@@ -104,7 +104,7 @@ void HelpFunc::execute() {
 
       void* vptr;
       comterp()->localtable()->find(vptr, command_id);
-      if (vptr) {
+      if (vptr && ((ComValue*)vptr)->is_command()) {
 	comfuncs[j] = (ComFunc*)((ComValue*)vptr)->obj_val();
       } else
 	comfuncs[j] = nil;
@@ -147,7 +147,7 @@ void HelpFunc::execute() {
       }
       if (!printed && command_ids[i]>=0) {
 	/* if symid is smaller than the highest operator it must be one */
-	if (command_ids[i] && command_ids[i]<=opr_tbl_topstr()) {
+	if (command_ids[i]>=0 && command_ids[i]<=opr_tbl_topstr()) {
 	  int op_ids[OPTYPE_NUM];
 	  char* opstr = symbol_pntr(command_ids[i]);
 	  unsigned int charcnt;

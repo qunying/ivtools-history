@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2000 IET Inc.
  * Copyright (c) 1997,1999 Vectaport Inc.
  *
  * Permission to use, copy, modify, distribute, and sell this software and
@@ -32,6 +33,8 @@
 
 /*****************************************************************************/
 
+int AssignFunc::_symid = -1;
+
 AssignFunc::AssignFunc(ComTerp* comterp) : ComFunc(comterp) {
 }
 
@@ -41,7 +44,8 @@ void AssignFunc::execute() {
     if (operand1.type() != ComValue::SymbolType) {
       operand1.assignval(stack_arg_post_eval(0, true /* no symbol lookup */));
     }
-    ComValue* operand2 = new ComValue(stack_arg_post_eval(1, true));
+    ComValue* operand2 = new ComValue(stack_arg_post_eval(1, true /* no symbol lookup */));
+    if (operand2->is_attribute()) lookup_symval(*operand2);
     reset_stack();
     if (operand1.type() == ComValue::SymbolType) {
         AttributeList* attrlist = comterp()->get_attributes();
@@ -51,11 +55,17 @@ void AssignFunc::execute() {
 					    operand2);
 	    attrlist->add_attribute(attr);
 	    Unref(attrlist);
-	} else 
+	} else if (operand1.global_flag()) 
+	    comterp()->globaltable()->insert(operand1.symbol_val(), operand2);
+	else
 	    comterp()->localtable()->insert(operand1.symbol_val(), operand2);
+    } else if (operand1.is_object(Attribute::class_symid())) {
+      Attribute* attr = (Attribute*)operand1.obj_val();
+      attr->Value(operand2);
     } else {
         cerr << "assignment to something other than a symbol ignored\n";
 	// should say something about assignment from something other than a symbol as well.
+	delete operand2;
     }
     push_stack(*operand2);
 }
@@ -69,16 +79,13 @@ void ModAssignFunc::execute() {
     if (operand1.type() != ComValue::SymbolType) {
       operand1.assignval(stack_arg_post_eval(0, true /* no symbol lookup */));
     }
-    ComValue operand2(stack_arg_post_eval(1, true));
+    ComValue operand2(stack_arg_post_eval(1, true /* no symbol lookup */));
+    if (operand2.is_attribute()) lookup_symval(operand2);
     reset_stack();
     if (operand1.type() == ComValue::SymbolType) {
         void* op1val = nil;
         _comterp->localtable()->find_and_remove(op1val, operand1.symbol_val());
-	if (!op1val) {
-	    push_stack(ComValue::nullval());
-	    return;
-	}
-	push_stack(*(ComValue*)op1val);
+	push_stack(op1val ? *(ComValue*)op1val : ComValue::zeroval());
 	delete (ComValue*)op1val;
 	push_stack(operand2);
         push_funcstate(2,0);
@@ -101,16 +108,13 @@ void MpyAssignFunc::execute() {
     if (operand1.type() != ComValue::SymbolType) {
       operand1.assignval(stack_arg_post_eval(0, true /* no symbol lookup */));
     }
-    ComValue operand2(stack_arg_post_eval(1, true));
+    ComValue operand2(stack_arg_post_eval(1, true /* no symbol lookup */));
+    if (operand2.is_attribute()) lookup_symval(operand2);
     reset_stack();
     if (operand1.type() == ComValue::SymbolType) {
         void* op1val = nil;
         _comterp->localtable()->find_and_remove(op1val, operand1.symbol_val());
-	if (!op1val) {
-	    push_stack(ComValue::nullval());
-	    return;
-	}
-	push_stack(*(ComValue*)op1val);
+	push_stack(op1val ? *(ComValue*)op1val : ComValue::zeroval());
 	delete (ComValue*)op1val;
 	push_stack(operand2);
         push_funcstate(2,0);
@@ -133,16 +137,13 @@ void AddAssignFunc::execute() {
     if (operand1.type() != ComValue::SymbolType) {
       operand1.assignval(stack_arg_post_eval(0, true /* no symbol lookup */));
     }
-    ComValue operand2(stack_arg_post_eval(1, true));
+    ComValue operand2(stack_arg_post_eval(1, true /* no symbol lookup */));
+    if (operand2.is_attribute()) lookup_symval(operand2);
     reset_stack();
     if (operand1.type() == ComValue::SymbolType) {
         void* op1val = nil;
         _comterp->localtable()->find_and_remove(op1val, operand1.symbol_val());
-	if (!op1val) {
-	    push_stack(ComValue::nullval());
-	    return;
-	}
-	push_stack(*(ComValue*)op1val);
+	push_stack(op1val ? *(ComValue*)op1val : ComValue::zeroval());
 	delete (ComValue*)op1val;
 	push_stack(operand2);
         push_funcstate(2,0);
@@ -165,16 +166,13 @@ void SubAssignFunc::execute() {
     if (operand1.type() != ComValue::SymbolType) {
       operand1.assignval(stack_arg_post_eval(0, true /* no symbol lookup */));
     }
-    ComValue operand2(stack_arg_post_eval(1, true));
+    ComValue operand2(stack_arg_post_eval(1, true /* no symbol lookup */));
+    if (operand2.is_attribute()) lookup_symval(operand2);
     reset_stack();
     if (operand1.type() == ComValue::SymbolType) {
         void* op1val = nil;
         _comterp->localtable()->find_and_remove(op1val, operand1.symbol_val());
-	if (!op1val) {
-	    push_stack(ComValue::nullval());
-	    return;
-	}
-	push_stack(*(ComValue*)op1val);
+	push_stack(op1val ? *(ComValue*)op1val : ComValue::zeroval());
 	delete (ComValue*)op1val;
 	push_stack(operand2);
         push_funcstate(2,0);
@@ -197,16 +195,13 @@ void DivAssignFunc::execute() {
     if (operand1.type() != ComValue::SymbolType) {
       operand1.assignval(stack_arg_post_eval(0, true /* no symbol lookup */));
     }
-    ComValue operand2(stack_arg_post_eval(1, true));
+    ComValue operand2(stack_arg_post_eval(1, true /* no symbol lookup */));
+    if (operand2.is_attribute()) lookup_symval(operand2);
     reset_stack();
     if (operand1.type() == ComValue::SymbolType) {
         void* op1val = nil;
         _comterp->localtable()->find_and_remove(op1val, operand1.symbol_val());
-	if (!op1val) {
-	    push_stack(ComValue::nullval());
-	    return;
-	}
-	push_stack(*(ComValue*)op1val);
+	push_stack(op1val ? *(ComValue*)op1val : ComValue::zeroval());
 	delete (ComValue*)op1val;
 	push_stack(operand2);
         push_funcstate(2,0);
@@ -232,23 +227,19 @@ void IncrFunc::execute() {
     if (operand1.type() == ComValue::SymbolType) {
         void* op1val = nil;
         _comterp->localtable()->find_and_remove(op1val, operand1.symbol_val());
-	if (!op1val) 
-	    push_stack(ComValue::nullval());
-	else {
-	    push_stack(*(ComValue*)op1val);
-	    delete (ComValue*)op1val;
-	    ComValue one;
-	    one.type(ComValue::IntType);
-	    one.int_ref() = 1;
-	    push_stack(one);
-	    push_funcstate(2,0);
-	    static AddFunc* subfunc = new AddFunc(comterp());
-	    subfunc->execute();
-	    pop_funcstate();
-	    ComValue* result = new ComValue(pop_stack());
-            _comterp->localtable()->insert(operand1.symbol_val(), result);
-	    push_stack(*result);
-	}
+     	push_stack(op1val ? *(ComValue*)op1val : ComValue::zeroval());
+	delete (ComValue*)op1val;
+	ComValue one;
+	one.type(ComValue::IntType);
+	one.int_ref() = 1;
+	push_stack(one);
+	push_funcstate(2,0);
+	static AddFunc* subfunc = new AddFunc(comterp());
+	subfunc->execute();
+	pop_funcstate();
+	ComValue* result = new ComValue(pop_stack());
+	_comterp->localtable()->insert(operand1.symbol_val(), result);
+	push_stack(*result);
     } else 
         push_stack(ComValue::nullval());
 
@@ -266,23 +257,19 @@ void IncrAfterFunc::execute() {
     if (operand1.type() == ComValue::SymbolType) {
         void* op1val = nil;
         _comterp->localtable()->find_and_remove(op1val, operand1.symbol_val());
-	if (!op1val)
-	    push_stack(ComValue::nullval());
-	else {
-	    push_stack(*(ComValue*)op1val);
-	    ComValue one;
-	    one.type(ComValue::IntType);
-	    one.int_ref() = 1;
-	    push_stack(one);
-	    push_funcstate(2,0);
-	    static AddFunc* subfunc = new AddFunc(comterp());
-	    subfunc->execute();
-	    pop_funcstate();
-	    ComValue* result = new ComValue(pop_stack());
-            _comterp->localtable()->insert(operand1.symbol_val(), result);
-	    push_stack(*(ComValue*)op1val);
-	    delete (ComValue*)op1val;
-	}
+	push_stack(op1val ? *(ComValue*)op1val: ComValue::zeroval());
+	ComValue one;
+	one.type(ComValue::IntType);
+	one.int_ref() = 1;
+	push_stack(one);
+	push_funcstate(2,0);
+	static AddFunc* subfunc = new AddFunc(comterp());
+	subfunc->execute();
+	pop_funcstate();
+	ComValue* result = new ComValue(pop_stack());
+	_comterp->localtable()->insert(operand1.symbol_val(), result);
+	push_stack(op1val ? *(ComValue*)op1val : ComValue::nullval());
+	delete (ComValue*)op1val;
     } else 
         push_stack(ComValue::nullval());
 
@@ -300,23 +287,19 @@ void DecrFunc::execute() {
     if (operand1.type() == ComValue::SymbolType) {
         void* op1val = nil;
         _comterp->localtable()->find_and_remove(op1val, operand1.symbol_val());
-	if (!op1val)
-	    push_stack(ComValue::nullval());
-	else {
-	    push_stack(*(ComValue*)op1val);
-	    delete (ComValue*)op1val;
-	    ComValue one;
-	    one.type(ComValue::IntType);
-	    one.int_ref() = 1;
-	    push_stack(one);
-	    push_funcstate(2,0);
-	    static SubFunc* subfunc = new SubFunc(comterp());
-	    subfunc->execute();
-	    pop_funcstate();
-	    ComValue* result = new ComValue(pop_stack());
-            _comterp->localtable()->insert(operand1.symbol_val(), result);
-	    push_stack(*result);
-	}
+     	push_stack(op1val ? *(ComValue*)op1val : ComValue::zeroval());
+	delete (ComValue*)op1val;
+	ComValue one;
+	one.type(ComValue::IntType);
+	one.int_ref() = 1;
+	push_stack(one);
+	push_funcstate(2,0);
+	static SubFunc* subfunc = new SubFunc(comterp());
+	subfunc->execute();
+	pop_funcstate();
+	ComValue* result = new ComValue(pop_stack());
+	_comterp->localtable()->insert(operand1.symbol_val(), result);
+	push_stack(*result);
     } else 
         push_stack(ComValue::nullval());
 
@@ -334,23 +317,19 @@ void DecrAfterFunc::execute() {
     if (operand1.type() == ComValue::SymbolType) {
         void* op1val = nil;
         _comterp->localtable()->find_and_remove(op1val, operand1.symbol_val());
-	if (!op1val)
-	    push_stack(ComValue::nullval());
-	else {
-	    push_stack(*(ComValue*)op1val);
-	    ComValue one;
-	    one.type(ComValue::IntType);
-	    one.int_ref() = 1;
-	    push_stack(one);
-	    push_funcstate(2,0);
-	    static SubFunc* subfunc = new SubFunc(comterp());
-	    subfunc->execute();
-	    pop_funcstate();
-	    ComValue* result = new ComValue(pop_stack());
-            _comterp->localtable()->insert(operand1.symbol_val(), result);
-	    push_stack(*(ComValue*)op1val);
-	    delete (ComValue*)op1val;
-	}
+	push_stack(op1val ? *(ComValue*)op1val : ComValue::zeroval());
+	ComValue one;
+	one.type(ComValue::IntType);
+	one.int_ref() = 1;
+	push_stack(one);
+	push_funcstate(2,0);
+	static SubFunc* subfunc = new SubFunc(comterp());
+	subfunc->execute();
+	pop_funcstate();
+	ComValue* result = new ComValue(pop_stack());
+	_comterp->localtable()->insert(operand1.symbol_val(), result);
+	push_stack(op1val ? *(ComValue*)op1val : ComValue::nullval());
+	delete (ComValue*)op1val;
     } else 
         push_stack(ComValue::nullval());
 

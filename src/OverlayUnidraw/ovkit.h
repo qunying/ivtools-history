@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2000 IET Inc.
  * Copyright (c) 1995-1999 Vectaport Inc.
  * Copyright (c) 1994 Vectaport Inc., Cartoactive Systems
  * Copyright (c) 1993 David B. Hollenbeck
@@ -102,6 +103,8 @@ public:
     // initialize viewer to go with the editor.
     virtual void InitLayout(const char* name);
     // initialize chrome that goes around the viewer.
+    static void InitLayout(OverlayKit* kit, const char* name);
+    // static method that implements virtual method.
 
     virtual Glyph* MakeMenus();
     // make all the pull-down menus and their menu bar.
@@ -174,11 +177,19 @@ public:
     static const char mouse_logscale[] = "l-drag: Logarithmically Scale Image between Pixel Values on Line; m-drag: Move; r-click/drag: Select";
     static const char mouse_pseudocolor[] = "l-drag: Pseudocolor Image between Pixel Values on Line; m-drag: Move; r-click/drag: Select";
     static const char mouse_grloc[] = "l-click: Location within Graphic; m-drag: Move; r-click/drag: Select";
+    static const char mouse_custom[] = "l-click: Drop icon; m-drag: Move; r-click/drag: Select";
 
     void otherdisplay(const char* display);
     // set possible alternate X display string for constructing viewer.  
     // Not yet working.
 
+    boolean& set_button_flag() { return _set_button_flag; }
+    // flag to add setr button to text editor
+    boolean& clr_button_flag() { return _clr_button_flag; }
+    // flag to add clear button to text editor
+
+    OverlayComp* add_tool_button(const char* path, OverlayComp* comp=nil);
+    // low-level routine used by ::add_custom_tool and others
 protected:
     Glyph* MenuLine(PSBrush*);
     // create line to put in a pulldown menu.
@@ -198,12 +209,26 @@ protected:
 
     const char* otherdisplay();
     // returns string that might specify an alternate X display.
+
+protected:
+    void toolbar0();
+    // switch to default toolbar
+    void toolbar1();
+    // switch to alternate toolbar
+    void add_custom_tool();
+    // import idraw-format tool button
+
 protected:
     OverlayEditor* _ed;
     Deck* _toolbars;
     Patch* _toolbar;
+    Glyph** _toolbar_vbox;
+    TelltaleGroup* _tg;
+    FloatCoord _maxwidth;
 
     char* _otherdisplay;
+    boolean _set_button_flag;
+    boolean _clr_button_flag;
 
 protected:
     static OverlayKit* _overlaykit;

@@ -93,6 +93,7 @@
 #include <Dispatch/iohandler.h>
 #include <Dispatch/dispatcher.h>
 #include <fstream.h>
+#include <string.h>
 #include <strstream.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -835,7 +836,7 @@ const char* OvImportCmd::ReadCreator (const char* pathname) {
 	}
 	return creator;
     } else {
-	cerr << "Unable to access image file:  " << pathname << "\n";
+	cerr << "Unable to access graphic file:  " << pathname << "\n";
 	return nil;
     }
 }
@@ -1301,7 +1302,7 @@ GraphicComp* OvImportCmd::Import (const char* path) {
       static boolean use_w3c = OverlayKit::bincheck("w3c");
       static boolean use_curl = OverlayKit::bincheck("curl");
       if (use_w3c) 
-	sprintf(buffer,"w3c %s", path);
+	sprintf(buffer,"w3c -q %s", path);
       else if (use_curl)
 	sprintf(buffer,"curl %s", path);
       else

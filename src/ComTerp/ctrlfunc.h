@@ -63,15 +63,6 @@ public:
 
 };
 
-//: . (dot) operator.
-class DotFunc : public ComFunc {
-public:
-    DotFunc(ComTerp*);
-
-    virtual void execute();
-
-};
-
 //: timer expression command for ComTerp.
 // timeexpr(comstr :sec n) -- command string to execute at intervals.
 class TimeExprFunc : public ComFunc {
@@ -110,14 +101,14 @@ public:
 };
 
 //: eval string command for ComTerp.
-// eval(cmdstr [cmdstr ...] :symret) -- evaluate string as commands, optionally returning symbol instead of nil.
+// str|lst=eval(cmdstr [cmdstr ...] :symret) -- evaluate string as commands, optionally returning symbol instead of nil.
 class EvalFunc : public ComFunc {
 public:
     EvalFunc(ComTerp*);
 
     virtual void execute();
     virtual const char* docstring() { 
-      return "%s(cmdstr) -- evaluate string as commands, optionally return symbol instead of nil"; }
+      return "str|lst=%s(cmdstr) -- evaluate string as commands, optionally return symbol instead of nil"; }
 
 };
 
@@ -139,6 +130,7 @@ class NilFunc : public ComFunc {
 public:
     NilFunc(ComTerp*);
 
+    virtual boolean post_eval() { return true; }
     virtual void execute();
     virtual const char* docstring() { 
       return "%s([...]) -- accept any arguments and return nil"; }

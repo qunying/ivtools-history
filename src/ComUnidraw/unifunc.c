@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 1994-1998 Vectaport Inc.
+ * Copyright (c) 2000 Vectaport Inc, IET Inc.
+ * Copyright (c) 1994-1999 Vectaport Inc.
  *
  * Permission to use, copy, modify, distribute, and sell this software and
  * its documentation for any purpose is hereby granted without fee, provided
@@ -27,6 +28,9 @@
 #include <OverlayUnidraw/ovcomps.h>
 #include <OverlayUnidraw/ovimport.h>
 #include <OverlayUnidraw/ovselection.h>
+#include <OverlayUnidraw/ovviews.h>
+#include <ComGlyph/comtextedit.h>
+#include <ComGlyph/comtextview.h>
 #include <Unidraw/clipboard.h>
 #include <Unidraw/creator.h>
 #include <Unidraw/globals.h>
@@ -38,22 +42,19 @@
 #include <Unidraw/Graphic/graphic.h>
 #include <InterViews/transformer.h>
 #include <InterViews/window.h>
-#include <ComTerp/comterp.h>
+#include <ComTerp/comterpserv.h>
 #include <ComTerp/comvalue.h>
 #include <Attribute/attrlist.h>
 #include <stdio.h>
+#include <strstream.h>
 #include <unistd.h>
 
 #define TITLE "UnidrawFunc"
 
 /*****************************************************************************/
 
-int UnidrawFunc::_compview_id = -1;
-
 UnidrawFunc::UnidrawFunc(ComTerp* comterp, Editor* ed) : ComFunc(comterp) {
     _ed = ed;
-    if (_compview_id<0)
-        _compview_id = symbol_add("CompView");
 }
 
 void UnidrawFunc::execute_log(Command* cmd) {
@@ -119,8 +120,8 @@ void PasteFunc::execute() {
 
     /* extract comp and scale/translate before pasting */
     ComponentView* view = (ComponentView*)viewv.obj_val();
-    OverlayComp* comp = (OverlayComp*)view->GetSubject();
-    Graphic* gr = comp->GetGraphic();
+    OverlayComp* comp = view ? (OverlayComp*)view->GetSubject() : nil;
+    Graphic* gr = comp ? comp->GetGraphic() : nil;
     if (gr) {
       if (xscalev.is_num() && yscalev.is_num()) {
 	float af[6];
@@ -146,6 +147,9 @@ void PasteFunc::execute() {
 	}
 	gr->SetTransformer(new Transformer(af[0],af[1],af[2],af[3],af[4],af[5]));
       }
+    } else {
+      push_stack(ComValue::nullval());
+      return;
     }
     
     /* set creator for gvupdater to use and disable unidraw (!use_unidraw) */
@@ -161,6 +165,37 @@ void PasteFunc::execute() {
     Component::use_unidraw(uflag);
 
     push_stack(viewv);
+}
+
+/*****************************************************************************/
+
+int PasteModeFunc:: _paste_mode = 0;
+
+PasteModeFunc::PasteModeFunc(ComTerp* comterp, Editor* ed) : UnidrawFunc(comterp, ed) {
+}
+
+void PasteModeFunc::execute() {
+  static int get_symid = symbol_add("get");
+  boolean get_flag = stack_key(get_symid).is_true();
+  if (get_flag) {
+    reset_stack();
+    int mode = paste_mode();
+    ComValue retval(mode, ComValue::IntType);
+    push_stack(retval);
+  } else {
+    if (nargs()==0) {
+      reset_stack();
+      int mode = !paste_mode();
+      paste_mode(mode);
+      ComValue retval(mode, ComValue::IntType);
+      push_stack(retval);
+    } else {
+      ComValue retval(stack_arg(0));
+      reset_stack();
+      paste_mode(retval.int_val());
+      push_stack(retval);
+    }
+  }
 }
 
 /*****************************************************************************/
@@ -188,36 +223,43 @@ void ReadOnlyFunc::execute() {
 ImportFunc::ImportFunc(ComTerp* comterp, Editor* ed) : UnidrawFunc(comterp, ed) {
 }
 
-OvImportCmd* ImportFunc::import(const char* path) {
+OvImportCmd* ImportFunc::import(const char* path, boolean popen) {
   OvImportCmd* cmd = new OvImportCmd(editor());
-  cmd->pathname(path);
-  execute_log(cmd);
+  cmd->pathname(path, popen);
+  cmd->Execute();
   if (cmd->component()) {
     ((OverlayComp*)cmd->component())->SetPathName(path);
-    ((OverlayComp*)cmd->component())->SetByPathnameFlag(true);
+    ((OverlayComp*)cmd->component())->SetByPathnameFlag(!popen);
   }
   return cmd;
 }
 
 void ImportFunc::execute() {
     ComValue pathnamev(stack_arg(0));
+    static int popen_symid = symbol_add("popen");
+    boolean popen_flag = stack_key(popen_symid).is_true();
     reset_stack();
     
     OvImportCmd* cmd;
     if (!pathnamev.is_array()) {
       if (nargs()==1) {
-	if (cmd = import(pathnamev.string_ptr())) {
-	  ComValue compval(_compview_id,
+	if ((cmd = import(pathnamev.string_ptr(), popen_flag)) && cmd->component()) {
+	  ComValue compval(((OverlayComp*)cmd->component())->classid(),
 			   new ComponentView(cmd->component()));
+	  delete cmd;
+	  compval.object_compview(true);
 	  push_stack(compval);
 	} else
 	  push_stack(ComValue::nullval());
       } else {
 	for (int i=0; i<nargs(); i++) 
-	  if (cmd = import(stack_arg(i).string_ptr())) {
-	    ComValue compval(_compview_id,
+	  if (cmd = import(stack_arg(i).string_ptr(), popen_flag)) {
+	    ComValue compval(((OverlayComp*)cmd->component())->classid(),
 			     new ComponentView(cmd->component()));
+	    delete cmd;
+	    compval.object_compview(true);
 	    push_stack(compval);
+
 	  } else
 	    push_stack(ComValue::nullval());
       }
@@ -227,9 +269,12 @@ void ImportFunc::execute() {
       Iterator it;
       inlist->First(it);
       while(!inlist->Done(it)) {
-	cmd = import(inlist->GetAttrVal(it)->string_ptr());
-	outlist->Append(new ComValue(_compview_id, 
-				     new ComponentView(cmd->component())));
+	cmd = import(inlist->GetAttrVal(it)->string_ptr(), popen_flag);
+	ComValue* val = new ComValue(((OverlayComp*)cmd->component())->classid(),
+				     new ComponentView(cmd->component()));
+	delete cmd;
+	val->object_compview(true);
+	outlist->Append(val);
 	inlist->Next(it);
       }
     }
@@ -252,13 +297,87 @@ void SetAttrFunc::execute() {
     ComponentView* view = (ComponentView*)viewval.obj_val();
     OverlayComp* comp = (OverlayComp*)view->GetSubject();
 
-    AttributeList* comp_al = comp->attrlist();
-    if (!comp_al)
+    AttributeList* comp_al = comp ? comp->attrlist() : nil;
+    if (!comp_al && comp)
       comp->SetAttributeList(al);
-    else {
+    else if (comp_al) {
       comp_al->merge(al);
       delete al;
     }
     push_stack(viewval);
+}
+
+/*****************************************************************************/
+
+FrameFunc::FrameFunc(ComTerp* comterp, Editor* ed) : UnidrawFunc(comterp, ed) {
+}
+
+void FrameFunc::execute() {
+    ComValue indexv(stack_arg(0, false, ComValue::minusoneval()));
+    reset_stack();
+    OverlayEditor* ed = (OverlayEditor*)GetEditor();
+
+    OverlaysView* frameview = ed->GetFrame(indexv.int_val());
+    if (frameview && frameview->GetSubject()) {
+      OverlayComp* comp = (OverlayComp*)frameview->GetSubject();
+      ComValue retval(comp->classid(), new ComponentView(comp));
+      retval.object_compview(true);
+      push_stack(retval);
+    } else
+      push_stack(ComValue::nullval());
+}
+
+/*****************************************************************************/
+
+UnidrawPauseFunc::UnidrawPauseFunc(ComTerp* comterp, Editor* ed) : UnidrawFunc(comterp, ed) {
+}
+
+void UnidrawPauseFunc::execute() {
+  ComValue msgstrv(stack_arg(0));
+  reset_stack();
+  comterpserv()->npause()++;
+
+  ComTextEditor* te = (ComTextEditor*) 
+    ((OverlayEditor*)GetEditor())->TextEditor();
+  if (te) {
+    ComTE_View* tv = te->comtextview();
+    if (tv) {
+      if (msgstrv.is_string()) {
+	tv->insert_string((char*)msgstrv.string_ptr(), strlen(msgstrv.string_ptr()));
+	tv->insert_char('\n');
+      }
+      ostrstream sbuf_s;
+      sbuf_s << "pause(" << comterpserv()->npause() << "): enter command or press C/R to continue\n";
+      sbuf_s.put('\0');
+      tv->insert_string(sbuf_s.str(), strlen(sbuf_s.str()));
+      comterpserv()->push_servstate();
+      unidraw->Run();
+      comterpserv()->pop_servstate();
+      ostrstream sbuf_e;
+      sbuf_e << "end of pause(" << comterpserv()->npause()+1 << ")\n";
+      sbuf_e.put('\0');
+      tv->insert_string(sbuf_e.str(), strlen(sbuf_e.str()));
+    }
+  } else {
+    cerr << "this version of pause command only works with ComTextEditor\n";
+  }
+}
+
+/*****************************************************************************/
+
+AddToolButtonFunc::AddToolButtonFunc(ComTerp* comterp, Editor* ed) : UnidrawFunc(comterp, ed) {
+}
+
+void AddToolButtonFunc::execute() {
+    ComValue pathnamev(stack_arg(0));
+    reset_stack();
+    OverlayEditor* ed = (OverlayEditor*)GetEditor();
+    OverlayComp* comp = ed->overlay_kit()->add_tool_button(pathnamev.symbol_ptr());
+    if (comp) {
+      ComValue retval(comp->classid(), new ComponentView(comp));
+      retval.object_compview(true);
+      push_stack(retval);
+    } else
+      push_stack(ComValue::nullval());
 }
 

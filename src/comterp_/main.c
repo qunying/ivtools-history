@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2000 IET Inc.
  * Copyright (c) 1994-1999 Vectaport, Inc.
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
@@ -55,24 +56,28 @@ FPointObj fp(0.,0.);
 int main(int argc, char *argv[]) {
 
     boolean server_flag = argc>1 && strcmp(argv[1], "server") == 0;
+    boolean logger_flag = argc>1 && strcmp(argv[1], "logger") == 0;
     boolean remote_flag = argc>1 && strcmp(argv[1], "remote") == 0;
     boolean client_flag = argc>1 && strcmp(argv[1], "client") == 0;
     boolean telcat_flag = argc>1 && strcmp(argv[1], "telcat") == 0;
     boolean run_flag = argc>1 && strcmp(argv[1], "run") == 0;
 
 #ifdef HAVE_ACE
-    if (server_flag) {
+    if (server_flag || logger_flag) {
         ComterpAcceptor* peer_acceptor = new ComterpAcceptor();
+	ComterpHandler::logger_mode(logger_flag);
 
         int portnum = argc > 2 ? atoi(argv[2]) : atoi(ACE_DEFAULT_SERVER_PORT_STR);
         if (peer_acceptor->open (ACE_INET_Addr (portnum)) == -1)
             cerr << "comterp: unable to open port " << portnum << " with ACE\n";
 
+#if !defined(__NetBSD__)  /* this is not the way to do it for NetBSD */
         else if (COMTERP_REACTOR::instance ()->register_handler
                   (peer_acceptor, ACE_Event_Handler::READ_MASK) == -1)
           cerr << "comterp: error registering acceptor with ACE reactor\n";
+#endif
 
-	else
+	else if (ComterpHandler::logger_mode()==0)
 	  cerr << "accepting comterp port (" << portnum << ") connections\n";
     
         // Register COMTERP_QUIT_HANDLER to receive SIGINT commands.  When received,
@@ -84,14 +89,12 @@ int main(int argc, char *argv[]) {
     			 "registering service with ACE_Reactor\n"), -1);
     
 	// Start up one on stdin
-	ComterpHandler* stdin_handler = new ComterpHandler();
-#if 0
-	if (ACE::register_stdin_handler(stdin_handler, COMTERP_REACTOR::instance(), nil) == -1)
-#else
-	if (COMTERP_REACTOR::instance()->register_handler(0, stdin_handler, 
-							  ACE_Event_Handler::READ_MASK)==-1)
-#endif
+	if (!logger_flag) {
+	  ComterpHandler* stdin_handler = new ComterpHandler();
+	  if (COMTERP_REACTOR::instance()->register_handler(0, stdin_handler, 
+							    ACE_Event_Handler::READ_MASK)==-1)
 	    cerr << "comterp: unable to open stdin with ACE\n";
+	}
 
         // Perform logging service until COMTERP_QUIT_HANDLER receives SIGINT.
         while (COMTERP_QUIT_HANDLER::instance ()->is_set () == 0)
@@ -145,7 +148,7 @@ int main(int argc, char *argv[]) {
 	}
       }
       
-    } else {
+    } else if (inptr) {
 
       filebuf inbuf;
       inbuf.attach(fileno(inptr));
@@ -155,55 +158,15 @@ int main(int argc, char *argv[]) {
       obuf.attach(server.get_handle());
       ostream out(&obuf);
 
-#if 0      
-      for (;;) {
-	char ch;
-	in.get(ch);
-	if (!in.good()) break;
-	out << ch;
-      }
-#else
       char buffer[BUFSIZ*BUFSIZ];
       while(!in.eof() && in.good()) {
 	in.read(buffer, BUFSIZ*BUFSIZ);
 	if (!in.eof() || in.gcount())
 	  out.write(buffer, in.gcount());
       }
-#endif
       out.flush();
-      
-#if 0
-      for (;;) {
-	fgets(buffer, BUFSIZ*BUFSIZ, inptr);
-	if (feof(inptr)) break;
-	fputs(buffer, fptr);
-	fflush(fptr);
-#if 0
-	fgets(buffer, BUFSIZ*BUFSIZ, fptr);
-	fputs(buffer, stdout);
-#else
-	char ch;
-	ch = getc(fptr);
-	if (ch == '>') {
-	  ch = getc(fptr);
-	  if (ch != ' ') {
-	    ungetc(ch, fptr);
-	    ungetc('>', fptr);
-	    fgets(buffer, BUFSIZ*BUFSIZ, fptr);
-	    fputs(buffer, stdout);
-	  } else {
-	    printf( "> " );
-	  }
-	} else {
-	  ungetc(ch, fptr);
-	  fgets(buffer, BUFSIZ*BUFSIZ, fptr);
-	  fputs(buffer, stdout);
-	}
-#endif
-      }
-#endif
-
-    }
+    } else 
+      cerr << "comterp: unable to open file:  " << argv[4] << "\n";
 
     if (argc<=4 && inptr)
       fclose(inptr);
@@ -213,7 +176,7 @@ int main(int argc, char *argv[]) {
 
     return 0;
     }
-#endif
+#endif /* defined(HAVE_ACE) */
 
     if (server_flag || remote_flag) {
       ComTerpServ* terp = new ComTerpServ(BUFSIZ*BUFSIZ);
